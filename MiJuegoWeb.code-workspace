@@ -1,8 +1,1282 @@
-{
-	"folders": [
-		{
-			"path": "../../MiJuegoWeb"
-		}
-	],
-	"settings": {}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aventura de Bolsillo: Alola</title>
+    <!-- Tailwind CSS CDN para un estilo moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome para los íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+
+        /* Clases de animación personalizadas */
+        .anim-usar {
+            animation: usarAnim 0.6s forwards;
+        }
+
+        @keyframes usarAnim {
+            0% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.3) rotate(20deg);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(0) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        /* Animación de estrellas */
+        .star-anim {
+            animation: star-fall 1.5s ease-out forwards;
+            position: absolute;
+            font-size: 2rem;
+            opacity: 0;
+        }
+
+        @keyframes star-fall {
+            0% {
+                transform: translateY(-20px) scale(0.5);
+                opacity: 0;
+            }
+            25% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            100% {
+                transform: translateY(100px) scale(0);
+                opacity: 0;
+            }
+        }
+        
+        /* Estilo para el modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Modifica el estilo del mensaje flotante para fondo blanco y tamaño más pequeño */
+        #mensaje-flotante {
+            background: #fff !important;
+            color: #222 !important;
+            min-width: 180px;
+            max-width: 260px;
+            font-size: 1rem;
+            padding: 0.75rem 1.25rem !important;
+            border-radius: 0.75rem !important;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+            border: 1.5px solid #e5e7eb;
+        }
+
+        @keyframes popscale {
+            0% { transform: scale(0.2); opacity:0; }
+            60% { transform: scale(1.15); opacity:1; }
+            80% { transform: scale(0.95);}
+            100% { transform: scale(1);}
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-400 to-indigo-600 text-gray-900 min-h-screen p-8 flex items-center justify-center transition-all duration-500">
+
+<!-- ==================== CONTENEDOR PRINCIPAL ==================== -->
+<div id="app-container" class="w-full max-w-5xl">
+
+    <!-- LOGIN -->
+    <div id="auth" class="bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-2xl w-full max-w-sm mx-auto border-4 border-white transform transition-transform duration-300 hover:scale-105">
+        <div class="flex justify-center mb-6">
+            <i class="fas fa-user-circle text-orange-500 text-6xl"></i>
+        </div>
+        <h2 class="text-4xl font-bold text-center mb-2 text-orange-600">Alola Entrenadores</h2>
+        <p class="text-center text-gray-600 mb-6">¡Inicia sesión para comenzar tu aventura en Alola!</p>
+        <div id="error-message" class="text-red-500 text-center mb-4 hidden"></div>
+        <form id="loginForm">
+            <div class="mb-4">
+                <label class="block text-gray-700 mb-2" for="usuario">Usuario</label>
+                <input type="text" id="usuario" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 border-2 border-orange-200" placeholder="Entrenador">
+            </div>
+            <div class="mb-6">
+                <label class="block text-gray-700 mb-2" for="password">Contraseña</label>
+                <input type="password" id="password" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 border-2 border-orange-200" placeholder="Contraseña">
+            </div>
+            <button type="submit" class="w-full bg-orange-500 text-white font-bold p-3 rounded-xl hover:bg-orange-600 transition-colors transform hover:scale-105 shadow-md border-2 border-orange-700">
+                Ingresar
+            </button>
+        </form>
+        <!-- Botón para limpiar el storage y restaurar usuarios -->
+        <button onclick="borrarStorage()" class="w-full mt-4 bg-gray-300 text-gray-700 font-bold p-2 rounded-xl hover:bg-gray-400 transition-colors border-2 border-gray-400">
+            Limpiar datos y restaurar usuarios
+        </button>
+    </div>
+
+    <!-- PANELES DE USUARIO -->
+    <div id="panels-container" class="hidden">
+        <!-- PERFIL & DASHBOARD DE JUGADOR -->
+        <div id="perfil" class="bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-2xl border-4 border-white">
+            <header class="flex flex-col sm:flex-row justify-between items-center pb-4 mb-4 border-b-2 border-gray-300">
+                <div class="flex items-center space-x-4 mb-4 sm:mb-0">
+                    <h2 class="text-3xl font-bold text-orange-600">Bienvenido, <span id="nombreUsuario"></span></h2>
+                    <span class="text-xl flex items-center font-bold text-teal-600 bg-teal-100 p-2 rounded-xl shadow-inner border-2 border-teal-300">
+                        <i class="fas fa-coins mr-2 text-teal-500"></i>
+                        <span id="saldo"></span>
+                    </span>
+                    <!-- NUEVO: Monedas de ruleta -->
+                    <span class="text-xl flex items-center font-bold text-yellow-600 bg-yellow-100 p-2 rounded-xl shadow-inner border-2 border-yellow-300 ml-2">
+                        <i class="fas fa-gem mr-2 text-yellow-500"></i>
+                        <span id="monedasRuleta"></span>
+                    </span>
+                </div>
+                <div class="flex flex-wrap justify-center space-x-2">
+                    <button onclick="mostrarTienda()" class="flex items-center p-3 my-1 bg-red-500 rounded-xl text-white hover:bg-red-600 transition-colors shadow-md border-2 border-red-700">
+                        <i class="fas fa-store mr-2"></i> Tienda
+                    </button>
+                    <button onclick="mostrarInventario()" class="flex items-center p-3 my-1 bg-green-500 rounded-xl text-white hover:bg-green-600 transition-colors shadow-md border-2 border-green-700">
+                        <i class="fas fa-box mr-2"></i> Mochila
+                    </button>
+                    <button onclick="mostrarHistorial()" class="flex items-center p-3 my-1 bg-blue-500 rounded-xl text-white hover:bg-blue-600 transition-colors shadow-md border-2 border-blue-700">
+                        <i class="fas fa-history mr-2"></i> Historial
+                    </button>
+                    <button onclick="mostrarRuleta()" class="flex items-center p-3 my-1 bg-purple-500 rounded-xl text-white hover:bg-purple-600 transition-colors shadow-md border-2 border-purple-700">
+                        <i class="fas fa-dice mr-2"></i> Ruleta
+                    </button>
+                    <button onclick="mostrarCargarEquipo()" class="flex items-center p-3 my-1 bg-indigo-500 rounded-xl text-white hover:bg-indigo-600 transition-colors shadow-md border-2 border-indigo-700">
+                        <i class="fas fa-upload mr-2"></i> Cargar equipo
+                    </button>
+                    <button onclick="logout()" class="flex items-center p-3 my-1 bg-gray-500 rounded-xl text-white hover:bg-gray-600 transition-colors shadow-md border-2 border-gray-700">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Salir
+                    </button>
+                </div>
+            </header>
+
+            <!-- CONTENIDO DINÁMICO DEL PERFIL -->
+            <div id="player-content">
+                <p class="text-center text-gray-500 mt-8 text-xl">¡Selecciona una opción para comenzar tu viaje!</p>
+            </div>
+        </div>
+
+        <!-- PANEL DE ADMIN -->
+        <div id="adminPanel" class="bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-2xl mt-8 hidden border-4 border-white">
+            <header class="flex flex-col sm:flex-row justify-between items-center pb-4 mb-4 border-b-2 border-gray-300">
+                <h2 class="text-3xl font-bold text-orange-600 flex items-center mb-4 sm:mb-0"><i class="fas fa-cogs mr-2"></i> Panel de Administración</h2>
+                <div class="flex items-center">
+                    <button onclick="logout()" class="flex items-center p-3 bg-gray-500 rounded-xl text-white hover:bg-gray-600 transition-colors shadow-md border-2 border-gray-700">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Salir
+                    </button>
+                    <button onclick="mostrarPanelRuletaAdmin()" class="flex items-center p-3 bg-purple-500 rounded-xl text-white hover:bg-purple-600 transition-colors shadow-md border-2 border-purple-700 ml-2">
+                        <i class="fas fa-dice mr-2"></i> Admin Ruleta
+                    </button>
+                </div>
+            </header>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Agregar monedas -->
+                <section class="bg-white/60 p-6 rounded-2xl shadow-inner border-2 border-white">
+                    <h3 class="text-2xl font-bold mb-4 text-orange-600">Agregar Monedas</h3>
+                    <form id="addCoinsForm">
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Selecciona un Jugador</label>
+                            <select id="selectorUsuario" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 border-2 border-orange-200"></select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Cantidad de Monedas</label>
+                            <input type="number" id="cantidadMonedas" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 border-2 border-orange-200" placeholder="Cantidad">
+                        </div>
+                        <button type="submit" class="w-full bg-orange-500 text-white font-bold p-3 rounded-xl hover:bg-orange-600 transition-colors shadow-md border-2 border-orange-700">
+                            <i class="fas fa-coins mr-2"></i> Agregar Monedas
+                        </button>
+                    </form>
+                </section>
+                <!-- Agregar monedas de ruleta -->
+                <section class="bg-white/60 p-6 rounded-2xl shadow-inner border-2 border-white">
+                    <h3 class="text-2xl font-bold mb-4 text-yellow-600">Agregar Monedas de Ruleta</h3>
+                    <form id="addRuletaCoinsForm">
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Selecciona un Jugador</label>
+                            <select id="selectorUsuarioRuleta" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 border-2 border-yellow-200"></select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Cantidad de Monedas de Ruleta</label>
+                            <input type="number" id="cantidadMonedasRuleta" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 border-2 border-yellow-200" placeholder="Cantidad">
+                        </div>
+                        <button type="submit" class="w-full bg-yellow-500 text-white font-bold p-3 rounded-xl hover:bg-yellow-600 transition-colors shadow-md border-2 border-yellow-700">
+                            <i class="fas fa-circle mr-2"></i> Agregar Monedas de Ruleta
+                        </button>
+                    </form>
+                </section>
+                <!-- Agregar producto -->
+                <section class="bg-white/60 p-6 rounded-2xl shadow-inner border-2 border-white">
+                    <h3 class="text-2xl font-bold mb-4 text-orange-600">Agregar Nuevo Producto</h3>
+                    <form id="addProductForm">
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Nombre</label>
+                            <input type="text" id="nuevoNombre" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 border-2 border-orange-200" placeholder="Nombre">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Costo</label>
+                            <input type="number" id="nuevoPrecio" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 border-2 border-orange-200" placeholder="Precio">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Imagen (Subir archivo)</label>
+                            <input type="file" id="nuevaImagenFile" accept="image/*" class="w-full text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <div id="previewContainer" class="mt-4 hidden"><img id="previewImg" class="w-32 h-32 object-cover rounded-xl border-4 border-white"></div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Categoría</label>
+                            <select id="nuevaCategoria" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 border-2 border-orange-200">
+                                <option value="">-- Seleccionar categoría --</option>
+                                <option value="Estadisticas mejoradas">Estadísticas mejoradas</option>
+                                <option value="Objetos y MTs">Objetos y MTs</option>
+                                <option value="Ataque">Ataque</option>
+                                <option value="El Elegido">El Elegido</option>
+                                <option value="Retos o condiciones">Retos o condiciones</option>
+                                <option value="Revivir y protecciones">Revivir y protecciones</option>
+                                <option value="Economia">Economía</option>
+                                <option value="Aura y apoyo">Aura y apoyo</option>
+                                <option value="Captura">Captura</option>
+                            </select>
+                        </div>
+                        <!-- 1. Agrega un campo de descripción en el formulario de agregar producto (admin) -->
+                        <div class="mb-4">
+                            <label class="block text-gray-700 mb-2">Descripción</label>
+                            <textarea id="nuevaDescripcion" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 border-2 border-orange-200" placeholder="Descripción del producto"></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-green-500 text-white font-bold p-3 rounded-xl hover:bg-green-600 transition-colors shadow-md border-2 border-green-700">
+                            <i class="fas fa-plus mr-2"></i> Agregar Producto
+                        </button>
+                    </form>
+                </section>
+                <!-- Ver Historial de Jugadores -->
+                <section class="bg-white/60 p-6 rounded-2xl shadow-inner col-span-1 md:col-span-2 border-2 border-white">
+                    <h3 class="text-2xl font-bold mb-4 text-orange-600">Ver Historial de Entrenadores</h3>
+                    <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4 mb-4">
+                        <label class="block text-gray-700 w-full md:w-auto">Selecciona un Entrenador</label>
+                        <select id="selectorHistorial" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 flex-1 border-2 border-orange-200"></select>
+                        <button onclick="verHistorialJugador()" class="w-full md:w-auto bg-blue-500 text-white font-bold p-3 rounded-xl hover:bg-blue-600 transition-colors shadow-md border-2 border-blue-700">
+                            <i class="fas fa-history mr-2"></i> Ver Historial
+                        </button>
+                    </div>
+                    <div id="historialJugadorContainer"></div>
+                </section>
+            </div>
+            <!-- Lista de productos existentes en admin -->
+            <h3 class="text-2xl font-bold text-orange-600 mt-6 mb-4">Productos existentes</h3>
+            <div id="listaProductosAdmin" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+
+            <!-- Panel de edición de la ruleta (admin) -->
+            <h3 class="text-2xl font-bold text-purple-600 mt-6 mb-4">Premios de la Ruleta</h3>
+            <div id="adminRuletaPremios" class="mb-8"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL DE DETALLE DE PRODUCTO (TIENDA) ==================== -->
+<div id="modalDetalle" class="modal-overlay">
+    <div class="bg-white rounded-2xl shadow-xl w-11/12 max-w-md p-4 md:p-6 relative transform transition-transform duration-300 scale-95 opacity-0" id="modalDetalleContent">
+        <button onclick="cerrarModal('modalDetalle')" class="absolute top-4 right-4 text-gray-500 hover:text-gray-900 text-2xl font-bold transition-transform duration-300 hover:scale-125">
+            &times;
+        </button>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <div class="w-full h-80 md:h-96 bg-gray-100 rounded-xl overflow-hidden border-2 border-white shadow-inner">
+                <img id="modalImagen" src="" alt="Producto" class="w-full h-full object-contain">
+            </div>
+            <div class="flex flex-col text-center md:text-left">
+                <h3 id="modalNombre" class="text-3xl font-bold text-orange-600 mb-2"></h3>
+                <p id="modalDescripcion" class="text-lg text-gray-600 mb-4"></p>
+                <p class="text-sm font-semibold text-gray-800 mb-4">Categoría: <span id="modalCategoria"></span></p>
+                <div class="flex items-center justify-center md:justify-start mb-6">
+                    <span id="modalPrecio" class="text-3xl font-bold text-teal-600 flex items-center"></span>
+                    <i class="fas fa-coins text-teal-500 ml-2"></i>
+                </div>
+                <button id="modalBotonComprar" class="w-32 md:w-32 bg-orange-500 text-white font-bold py-2 px-4 text-base rounded-xl hover:bg-orange-600 transition-colors shadow-md border-2 border-orange-700">
+                    Comprar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== NUEVO MODAL PARA EL INVENTARIO ==================== -->
+<div id="modalInventario" class="modal-overlay">
+    <div class="bg-white rounded-2xl shadow-xl w-11/12 md:w-1/2 p-6 md:p-8 relative transform transition-transform duration-300 scale-95 opacity-0" id="modalInventarioContent">
+        <button onclick="cerrarModal('modalInventario')" class="absolute top-4 right-4 text-gray-500 hover:text-gray-900 text-2xl font-bold transition-transform duration-300 hover:scale-125">
+            &times;
+        </button>
+        <div class="flex flex-col items-center">
+            <h3 id="modalInventarioNombre" class="text-3xl font-bold text-orange-600 mb-4"></h3>
+            <div class="w-full h-80 md:h-96 bg-gray-100 rounded-xl overflow-hidden border-2 border-white shadow-inner mb-6">
+                <img id="modalInventarioImagen" src="" alt="Producto" class="w-full h-full object-contain">
+            </div>
+            <p id="modalInventarioDescripcion" class="text-lg text-gray-600 mb-4 text-center"></p>
+            <p class="text-sm font-semibold text-gray-800 mb-4">Categoría: <span id="modalInventarioCategoria"></span></p>
+            <button id="modalInventarioBotonUsar" class="w-full md:w-auto bg-green-500 text-white font-bold p-3 rounded-xl hover:bg-green-600 transition-colors shadow-md border-2 border-green-700">
+                Usar Ítem
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Mejora el cuadro de descripción para que sea un modal pequeño y elegante en vez de la burbuja flotante -->
+<div id="modalDescripcionTienda" class="modal-overlay">
+    <div class="bg-white rounded-2xl shadow-xl w-11/12 max-w-xs p-6 relative transform transition-transform duration-300 scale-95 opacity-0" id="modalDescripcionTiendaContent">
+        <button onclick="cerrarModal('modalDescripcionTienda')" class="absolute top-2 right-4 text-gray-500 hover:text-gray-900 text-2xl font-bold transition-transform duration-300 hover:scale-125">
+            &times;
+        </button>
+        <h4 id="modalDescripcionTitulo" class="text-xl font-bold text-orange-600 mb-2 text-center"></h4>
+        <p id="modalDescripcionTexto" class="text-gray-700 text-base text-center"></p>
+    </div>
+</div>
+
+<!-- MENSAJES FLOTANTES (snackbar) -->
+<div id="mensaje-flotante" class="fixed bottom-4 right-4 z-50 p-4 rounded-xl shadow-lg transform transition-transform duration-300 scale-0 origin-bottom-right"></div>
+
+<!-- Modal para editar producto (admin) -->
+<div id="modalEditarProducto" class="modal-overlay">
+    <div class="bg-white rounded-2xl shadow-xl w-11/12 max-w-md p-6 relative transform transition-transform duration-300 scale-95 opacity-0" id="modalEditarProductoContent">
+        <button onclick="cerrarModal('modalEditarProducto')" class="absolute top-2 right-4 text-gray-500 hover:text-gray-900 text-2xl font-bold transition-transform duration-300 hover:scale-125">
+            &times;
+        </button>
+        <h3 class="text-2xl font-bold text-orange-600 mb-4 text-center">Editar Producto</h3>
+        <form id="formEditarProducto">
+            <div class="mb-4">
+                <label class="block text-gray-700 mb-2">Nombre</label>
+                <input type="text" id="editarNombre" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl border-2 border-orange-200" required>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 mb-2">Descripción</label>
+                <textarea id="editarDescripcion" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl border-2 border-orange-200" required></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 mb-2">Precio</label>
+                <input type="number" id="editarPrecio" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl border-2 border-orange-200" required>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 mb-2">Categoría</label>
+                <input type="text" id="editarCategoria" class="w-full bg-white/70 text-gray-900 p-3 rounded-xl border-2 border-orange-200" required>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 mb-2">Imagen (dejar vacío para no cambiar)</label>
+                <input type="file" id="editarImagenFile" accept="image/*" class="w-full text-gray-900 p-3 rounded-xl">
+                <div id="editarPreviewContainer" class="mt-2 hidden"><img id="editarPreviewImg" class="w-32 h-32 object-cover rounded-xl border-4 border-white"></div>
+            </div>
+            <button type="submit" class="w-full bg-green-500 text-white font-bold p-3 rounded-xl hover:bg-green-600 transition-colors shadow-md border-2 border-green-700">
+                Guardar Cambios
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- ==================== MODAL DE LA RULETA ==================== -->
+<div id="modalRuleta" class="modal-overlay">
+    <div class="bg-white rounded-2xl shadow-xl w-11/12 max-w-lg p-6 relative transform transition-transform duration-300 scale-95 opacity-0" id="modalRuletaContent">
+        <button onclick="cerrarModal('modalRuleta')" class="absolute top-2 right-4 text-gray-500 hover:text-gray-900 text-2xl font-bold transition-transform duration-300 hover:scale-125">
+            &times;
+        </button>
+        <h3 class="text-2xl font-bold text-purple-600 mb-4 text-center">Ruleta de Premios</h3>
+        <canvas id="canvasRuleta" width="400" height="400" class="mx-auto mb-4"></canvas>
+        <button id="girarRuletaBtn" class="w-full bg-purple-500 text-white font-bold p-3 rounded-xl hover:bg-purple-600 transition-colors shadow-md border-2 border-purple-700 mb-2">
+            Girar Ruleta
+        </button>
+        <div id="premioRuleta" class="text-center text-lg font-bold text-green-600 mt-2"></div>
+    </div>
+</div>
+
+<!-- ==================== MODAL ADMIN RULETA ==================== -->
+<div id="modalAdminRuleta" class="modal-overlay">
+    <div class="bg-white rounded-2xl shadow-xl w-11/12 max-w-lg p-6 relative transform transition-transform duration-300 scale-95 opacity-0" id="modalAdminRuletaContent">
+        <button onclick="cerrarModal('modalAdminRuleta')" class="absolute top-2 right-4 text-gray-500 hover:text-gray-900 text-2xl font-bold transition-transform duration-300 hover:scale-125">
+            &times;
+        </button>
+        <h3 class="text-2xl font-bold text-purple-600 mb-4 text-center">Administrar Premios de la Ruleta</h3>
+        <div id="adminRuletaPremiosPanel"></div>
+    </div>
+</div>
+
+<div id="ruleta-premio-anim" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.7); align-items:center; justify-content:center;">
+    <div style="animation: popscale 0.7s cubic-bezier(.68,-0.55,.27,1.55); background:white; border-radius:2rem; box-shadow:0 8px 32px #0008; padding:2rem; display:flex; flex-direction:column; align-items:center;">
+        <img id="ruleta-premio-img" src="" alt="Premio" style="width:180px; height:240px; object-fit:contain; border-radius:1rem; border:4px solid #a78bfa; box-shadow:0 4px 24px #a78bfa88;">
+        <div id="ruleta-premio-nombre" style="margin-top:1.5rem; font-size:2rem; font-weight:bold; color:#7c3aed; text-align:center;"></div>
+    </div>
+</div>
+
+<!-- Modal para cargar equipo Pokémon -->
+<div id="modalCargarEquipo" class="modal-overlay">
+    <div class="bg-white rounded-2xl shadow-xl w-11/12 max-w-md p-6 relative transform transition-transform duration-300 scale-95 opacity-0" id="modalCargarEquipoContent">
+        <button onclick="cerrarModal('modalCargarEquipo')" class="absolute top-4 right-4 text-gray-500 hover:text-gray-900 text-2xl font-bold transition-transform duration-300 hover:scale-125">
+            &times;
+        </button>
+        <h3 class="text-2xl font-bold text-indigo-700 mb-4 text-center">Cargar equipo Pokémon</h3>
+        <div class="flex flex-col items-center">
+            <label class="mb-2 font-bold text-lg text-indigo-700">Sube tu partida .main</label>
+            <input type="file" id="inputMainFile" accept=".json,.txt" class="mb-4 p-2 border-2 border-indigo-300 rounded-xl bg-white/80" />
+            <button onclick="leerMainFile()" class="bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-indigo-600 transition-colors">
+                Cargar equipo Pokémon
+            </button>
+        </div>
+        <div id="cuadroEquipo" class="hidden bg-white/80 border-4 border-indigo-300 rounded-2xl shadow-xl p-6 mt-4 max-w-xl mx-auto">
+            <h3 class="text-2xl font-bold text-indigo-700 mb-4 text-center">Tu equipo Pokémon</h3>
+            <div id="equipoPokemon" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==================== DATOS INICIALES ====================
+    let usuarios = JSON.parse(localStorage.getItem("usuarios")) || [
+        { usuario: "odin", password: "admin", nombre: "Odin", saldo: 9999, monedasRuleta: 10, inventario: [], historialCompras: [], historialUsos: [], esAdmin: true },
+        { usuario: "athena", password: "admin", nombre: "Athena", saldo: 8000, monedasRuleta: 10, inventario: [], historialCompras: [], historialUsos: [], esAdmin: true },
+        { usuario: "hugo", password: "123", nombre: "Hugo", saldo: 500, monedasRuleta: 2, inventario: [], historialCompras: [], historialUsos: [], esAdmin: false },
+        { usuario: "ivan", password: "456", nombre: "Ivan", saldo: 200, monedasRuleta: 1, inventario: [], historialCompras: [], historialUsos: [], esAdmin: false }
+    ];
+    let productos = JSON.parse(localStorage.getItem("productos")) || [
+        { id: 'item1', nombre: 'Poción', descripcion: 'Restaura 20 PS.', precio: 50, imagen: 'https://placehold.co/150x200/FF5733/FFFFFF?text=Poción', categoria: 'Revivir y protecciones' },
+        { id: 'item2', nombre: 'Superpoción', descripcion: 'Restaura 50 PS.', precio: 40, imagen: 'https://placehold.co/150x200/3498DB/ffffff?text=Superpoción', categoria: 'Revivir y protecciones' },
+        { id: 'item3', nombre: 'Poké Ball', descripcion: 'Para capturar Pokémon.', precio: 80, imagen: 'https://placehold.co/150x200/E74C3C/FFFFFF?text=Poké+Ball', categoria: 'Captura' },
+        { id: 'item4', nombre: 'Caramelo Raro', descripcion: 'Sube un nivel a tu Pokémon.', precio: 30, imagen: 'https://placehold.co/150x200/F1C40F/000000?text=Caramelo+Raro', categoria: 'Estadisticas mejoradas' }
+    ];
+    let usuarioActivo = null;
+
+    // Agrega un nuevo usuario administrador solo si no existe
+    const nuevoAdmin = { usuario: "adminextra", password: "superadmin", nombre: "Admin Extra", saldo: 10000, monedasRuleta: 10, inventario: [], historialCompras: [], historialUsos: [], esAdmin: true };
+    if (!usuarios.some(u => u.usuario === nuevoAdmin.usuario)) {
+        usuarios.push(nuevoAdmin);
+        localStorage.setItem("usuarios", JSON.stringify(usuarios));
+    }
+
+    // Asegura que todos los usuarios tengan la propiedad monedasRuleta
+    usuarios.forEach(u => {
+        if (u.monedasRuleta === undefined) u.monedasRuleta = 0;
+    });
+
+    // ==================== FUNCIONES DE CONTROL ====================
+    function guardarDatos() {
+        localStorage.setItem("usuarios", JSON.stringify(usuarios));
+        localStorage.setItem("productos", JSON.stringify(productos));
+    }
+
+    function mostrarMensajeFlotante(texto, bgColor = 'bg-blue-600') {
+        const mensaje = document.getElementById('mensaje-flotante');
+        mensaje.innerText = texto;
+        mensaje.className = `fixed bottom-4 right-4 z-50 p-4 rounded-xl shadow-lg text-white transform transition-all duration-300 scale-100 ${bgColor}`;
+        setTimeout(() => {
+            mensaje.className = `fixed bottom-4 right-4 z-50 p-4 rounded-xl shadow-lg text-white transform transition-all duration-300 scale-0`;
+        }, 2500);
+    }
+    
+    // Nueva función para la animación de estrellas
+    function animacionEstrellas() {
+        const container = document.getElementById('app-container');
+        const numEstrellas = 15;
+        for (let i = 0; i < numEstrellas; i++) {
+            const star = document.createElement('div');
+            star.innerText = '✨';
+            star.classList.add('star-anim');
+            // Posición aleatoria
+            const x = Math.random() * container.offsetWidth;
+            const y = Math.random() * container.offsetHeight;
+            star.style.left = `${x}px`;
+            star.style.top = `${y}px`;
+            // Retardo aleatorio
+            star.style.animationDelay = `${Math.random() * 0.5}s`;
+            container.appendChild(star);
+
+            star.addEventListener('animationend', () => {
+                star.remove();
+            });
+        }
+    }
+
+    function cambiarVista(vista) {
+        document.getElementById("perfil").classList.add('hidden');
+        document.getElementById("adminPanel").classList.add('hidden');
+        document.getElementById("auth").classList.add('hidden');
+        document.getElementById("panels-container").classList.add('hidden');
+
+        document.getElementById('player-content').innerHTML = ''; // Limpiar el contenido del dashboard
+
+        if (vista === 'login') {
+            document.getElementById("auth").classList.remove('hidden');
+        } else {
+            document.getElementById("panels-container").classList.remove('hidden');
+            if (usuarioActivo.esAdmin) {
+                document.getElementById("adminPanel").classList.remove('hidden');
+            } else {
+                document.getElementById("perfil").classList.remove('hidden');
+            }
+        }
+    }
+    
+    // ==================== LOGIN / LOGOUT ====================
+    document.getElementById("loginForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const usuario = document.getElementById("usuario").value;
+        const password = document.getElementById("password").value;
+        const errorDiv = document.getElementById("error-message");
+
+        const user = usuarios.find(u => u.usuario === usuario && u.password === password);
+        if (!user) {
+            errorDiv.innerText = "Usuario o contraseña incorrectos.";
+            errorDiv.classList.remove('hidden');
+            return;
+        }
+
+        usuarioActivo = user;
+        errorDiv.classList.add('hidden');
+        document.getElementById("nombreUsuario").innerText = usuarioActivo.nombre;
+        document.getElementById("saldo").innerText = usuarioActivo.saldo;
+        document.getElementById("monedasRuleta").innerText = usuarioActivo.monedasRuleta ?? 0;
+        const btnMonedas = document.getElementById("btnMonedasRuleta");
+        if(btnMonedas) btnMonedas.innerText = usuarioActivo.monedasRuleta ?? 0;
+        
+        cambiarVista(usuarioActivo.esAdmin ? 'admin' : 'dashboard');
+        
+        if (usuarioActivo.esAdmin) {
+            actualizarSelectorUsuarios();
+            renderProductosAdmin();
+        }
+        mostrarMensajeFlotante(`¡Bienvenido, ${usuarioActivo.nombre}!`, 'bg-green-600');
+    });
+
+    function logout() {
+        usuarioActivo = null;
+        cambiarVista('login');
+        document.getElementById("usuario").value = "";
+        document.getElementById("password").value = "";
+    }
+
+    // ==================== TIENDA ====================
+    function mostrarTienda() {
+        const container = document.getElementById('player-content');
+        container.innerHTML = `
+            <h3 class="text-2xl font-bold mb-6 text-center text-orange-600">Tienda Pokémon</h3>
+            <div id="listaProductos" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+        `;
+        renderTienda();
+    }
+
+    function renderTienda() {
+        const lista = document.getElementById("listaProductos");
+        if (!lista) return;
+        lista.innerHTML = "";
+        productos.forEach((p, i) => {
+            const div = document.createElement("div");
+            div.className = "bg-white/60 p-4 rounded-xl shadow-lg border-2 border-white flex flex-col items-center text-center transform transition-transform duration-300 hover:scale-105 cursor-pointer";
+            div.innerHTML = `
+                <div class="w-full flex justify-center mb-4">
+                    <img src="${p.imagen}" alt="${p.nombre}" class="object-contain" style="width:320px; height:440px;">
+                </div>
+                <h3 class="text-lg font-bold text-orange-600">${p.nombre}</h3>
+                <p class="text-sm text-gray-600 mb-2">Categoría: ${p.categoria}</p>
+                <button onclick="mostrarDescripcionTienda('${p.id}')" class="bg-blue-500 text-white text-xs px-3 py-1 rounded-full mb-2 hover:bg-blue-600 transition-colors">Ver descripción</button>
+                <span class="text-lg font-bold text-teal-600 mb-4 flex items-center">${p.precio} <i class="fas fa-coins ml-2"></i></span>
+            `;
+            lista.appendChild(div);
+        });
+    }
+
+    // Nueva función para mostrar la descripción en un alert bonito
+    function mostrarDescripcionTienda(itemId) {
+        const item = productos.find(p => p.id === itemId);
+        if (!item) return;
+        document.getElementById('modalDescripcionTitulo').innerText = item.nombre;
+        document.getElementById('modalDescripcionTexto').innerText = item.descripcion ? item.descripcion : "Sin descripción.";
+        const modal = document.getElementById('modalDescripcionTienda');
+        const modalContent = document.getElementById('modalDescripcionTiendaContent');
+        modal.classList.add('active');
+        setTimeout(() => {
+            modalContent.classList.remove('scale-95', 'opacity-0');
+            modalContent.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    function comprarItem(itemId) {
+        const item = productos.find(p => p.id === itemId);
+        if (!item) return;
+
+        if (usuarioActivo.saldo < item.precio) {
+            mostrarMensajeFlotante("No tienes suficientes monedas.", 'bg-red-600');
+            return;
+        }
+
+        usuarioActivo.saldo -= item.precio;
+        usuarioActivo.inventario.push(item);
+        usuarioActivo.historialCompras.push({ item: item.nombre, fecha: new Date().toLocaleString() });
+
+        document.getElementById("saldo").innerText = usuarioActivo.saldo;
+        guardarDatos();
+        mostrarMensajeFlotante(`¡Compra de ${item.nombre} exitosa!`, 'bg-green-600');
+        cerrarModal('modalDetalle'); // Cerrar el modal al comprar
+    }
+    
+    // Nueva función para mostrar el modal de detalle del ítem
+    function mostrarDetalleItem(itemId) {
+        const item = productos.find(p => p.id === itemId);
+        if (!item) return;
+
+        // Llenar el modal con los datos del producto
+        document.getElementById('modalImagen').src = item.imagen;
+        document.getElementById('modalNombre').innerText = item.nombre;
+        document.getElementById('modalDescripcion').innerText = item.descripcion;
+        document.getElementById('modalCategoria').innerText = item.categoria;
+        document.getElementById('modalPrecio').innerText = item.precio;
+        
+        // Asignar la función de compra al botón del modal
+        const comprarBtn = document.getElementById('modalBotonComprar');
+        comprarBtn.onclick = () => comprarItem(itemId);
+
+        // Mostrar el modal y la animación
+        const modal = document.getElementById('modalDetalle');
+        const modalContent = document.getElementById('modalDetalleContent');
+        modal.classList.add('active');
+        setTimeout(() => {
+            modalContent.classList.remove('scale-95', 'opacity-0');
+            modalContent.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+    
+    // Función para cerrar el modal
+    function cerrarModal(modalId) {
+        console.log("Cerrando modal:", modalId);
+        const modal = document.getElementById(modalId);
+        if (!modal) {
+            console.error(`Modal con ID "${modalId}" no encontrado.`);
+            return;
+        }
+        const modalContent = document.getElementById(`${modalId}Content`);
+        if (!modalContent) {
+            console.error(`Contenido del modal con ID "${modalId}Content" no encontrado.`);
+            return;
+        }
+        modalContent.classList.remove('scale-100', 'opacity-100');
+        modalContent.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            modal.classList.remove('active');
+        }, 300);
+    }
+    
+    // ==================== INVENTARIO ====================
+    function mostrarInventario() {
+        const container = document.getElementById('player-content');
+        container.innerHTML = `
+            <h3 class="text-2xl font-bold mb-6 text-center text-orange-600">Tu Mochila</h3>
+            <div id="listaInventario" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+        `;
+        renderInventario();
+    }
+
+    function renderInventario() {
+        const lista = document.getElementById("listaInventario");
+        lista.innerHTML = "";
+        if (usuarioActivo.inventario.length === 0) {
+            lista.innerHTML = `<p class="text-center text-gray-500 mt-8 text-xl w-full">¡Tu mochila está vacía!</p>`;
+        } else {
+            usuarioActivo.inventario.forEach((p, i) => {
+                const div = document.createElement("div");
+                div.className = "bg-white/60 p-4 rounded-xl shadow-lg border-2 border-white flex flex-col items-center text-center transform transition-transform duration-300 hover:scale-105 cursor-pointer";
+                div.setAttribute('onclick', `mostrarDetalleInventario(${i})`);
+                div.innerHTML = `
+                    <div class="w-full flex justify-center mb-4">
+                        <img src="${p.imagen}" alt="${p.nombre}" class="object-contain" style="width:320px; height:440px;">
+                    </div>
+                    <h3 class="text-lg font-bold text-orange-600">${p.nombre}</h3>
+                    <p class="text-sm text-gray-600 mb-4">Categoría: ${p.categoria}</p>
+                `;
+                lista.appendChild(div);
+            });
+        }
+    }
+    
+    // Nueva función para mostrar el modal de detalle del inventario
+    function mostrarDetalleInventario(index) {
+        const item = usuarioActivo.inventario[index];
+        if (!item) return;
+
+        // Llenar el modal con los datos del producto
+        document.getElementById('modalInventarioImagen').src = item.imagen;
+        document.getElementById('modalInventarioNombre').innerText = item.nombre;
+        document.getElementById('modalInventarioDescripcion').innerText = item.descripcion;
+        document.getElementById('modalInventarioCategoria').innerText = item.categoria;
+
+        // Asignar la función de uso al botón del modal
+        const usarBtn = document.getElementById('modalInventarioBotonUsar');
+        usarBtn.onclick = () => usarItem(index);
+
+        // Mostrar el modal y la animación
+        const modal = document.getElementById('modalInventario');
+        const modalContent = document.getElementById('modalInventarioContent');
+        modal.classList.add('active');
+        setTimeout(() => {
+            modalContent.classList.remove('scale-95', 'opacity-0');
+            modalContent.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+    
+    function usarItem(index) {
+        const item = usuarioActivo.inventario[index];
+        if (!item) return;
+
+        // Animar con estrellas antes de usar
+        animacionEstrellas();
+
+        // Efecto de animación temporal
+        const animationDiv = document.createElement('div');
+        animationDiv.className = `fixed inset-0 flex items-center justify-center text-8xl z-50 pointer-events-none`;
+        let emoji = '✨';
+        animationDiv.innerHTML = emoji;
+        document.body.appendChild(animationDiv);
+
+        setTimeout(() => {
+            animationDiv.remove();
+            const [usedItem] = usuarioActivo.inventario.splice(index, 1);
+            usuarioActivo.historialUsos.push({ item: usedItem.nombre, fecha: new Date().toLocaleString() });
+            renderInventario();
+            guardarDatos();
+            mostrarMensajeFlotante(`Usaste: ${usedItem.nombre}`, 'bg-blue-600');
+            cerrarModal('modalInventario'); // Cerrar el modal al usar el item
+        }, 600);
+    }
+    
+    // ==================== HISTORIAL DE JUGADOR ====================
+    function mostrarHistorial() {
+        const container = document.getElementById('player-content');
+        container.innerHTML = `
+            <h3 class="text-2xl font-bold mb-6 text-center text-orange-600">Historial de Aventura</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <section class="bg-white/60 p-6 rounded-2xl shadow-inner border-2 border-white">
+                    <h4 class="text-xl font-bold mb-4 text-orange-600">Compras</h4>
+                    <ul id="historialCompras" class="list-disc list-inside text-gray-700"></ul>
+                </section>
+                <section class="bg-white/60 p-6 rounded-2xl shadow-inner border-2 border-white">
+                    <h4 class="text-xl font-bold mb-4 text-orange-600">Uso de Ítems</h4>
+                    <ul id="historialUsos" class="list-disc list-inside text-gray-700"></ul>
+                </section>
+            </div>
+        `;
+        renderHistorial();
+    }
+    
+    function renderHistorial() {
+        const comprasList = document.getElementById('historialCompras');
+        const usosList = document.getElementById('historialUsos');
+        comprasList.innerHTML = '';
+        usosList.innerHTML = '';
+        
+        if(usuarioActivo.historialCompras.length === 0 && usuarioActivo.historialUsos.length === 0){
+             document.getElementById('player-content').innerHTML = `<p class="text-center text-gray-500 mt-8 text-xl w-full">¡Tu historial está vacío!</p>`;
+             return;
+        }
+
+        usuarioActivo.historialCompras.forEach(h => {
+            const li = document.createElement('li');
+            li.textContent = `${h.item} - ${h.fecha}`;
+            comprasList.appendChild(li);
+        });
+        
+        usuarioActivo.historialUsos.forEach(h => {
+            const li = document.createElement('li');
+            li.textContent = `${h.item} - ${h.fecha}`;
+            usosList.appendChild(li);
+        });
+    }
+
+    // ==================== ADMIN ====================
+    function actualizarSelectorUsuarios() {
+        // Selector para agregar monedas
+        const selAddCoins = document.getElementById("selectorUsuario");
+        selAddCoins.innerHTML = `<option value="">-- Elige un jugador --</option>`;
+        
+        // Selector para ver historial
+        const selHistorial = document.getElementById("selectorHistorial");
+        selHistorial.innerHTML = `<option value="">-- Elige un jugador --</option>`;
+
+        // Selector para agregar monedas de ruleta
+        const selRuleta = document.getElementById("selectorUsuarioRuleta");
+        if (selRuleta) {
+            selRuleta.innerHTML = `<option value="">-- Elige un jugador --</option>`;
+            usuarios.forEach(u => {
+                if (!u.esAdmin) {
+                    const o = document.createElement("option");
+                    o.value = u.usuario;
+                    o.textContent = u.nombre;
+                    selRuleta.appendChild(o);
+                }
+            });
+        }
+
+        usuarios.forEach(u => { 
+            if (!u.esAdmin) {
+                // Para agregar monedas
+                const oAddCoins = document.createElement("option");
+                oAddCoins.value = u.usuario;
+                oAddCoins.textContent = u.nombre;
+                selAddCoins.appendChild(oAddCoins);
+
+                // Para ver historial
+                const oHistorial = document.createElement("option");
+                oHistorial.value = u.usuario;
+                oHistorial.textContent = u.nombre;
+                selHistorial.appendChild(oHistorial);
+            }
+        });
+    }
+
+    document.getElementById("addCoinsForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const usuario = document.getElementById("selectorUsuario").value;
+        const cantidad = parseInt(document.getElementById("cantidadMonedas").value);
+        const user = usuarios.find(u => u.usuario === usuario);
+
+        if (!user || isNaN(cantidad) || cantidad <= 0) {
+            mostrarMensajeFlotante("Selecciona un usuario y una cantidad válida.", 'bg-red-600');
+            return;
+        }
+
+        user.saldo += cantidad;
+        guardarDatos();
+        mostrarMensajeFlotante(`${cantidad} monedas agregadas a ${user.nombre}`, 'bg-green-600');
+        document.getElementById("cantidadMonedas").value = "";
+    });
+
+    document.getElementById("addRuletaCoinsForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const usuario = document.getElementById("selectorUsuarioRuleta").value;
+        const cantidad = parseInt(document.getElementById("cantidadMonedasRuleta").value);
+        const user = usuarios.find(u => u.usuario === usuario);
+
+        if (!user || isNaN(cantidad) || cantidad <= 0) {
+            mostrarMensajeFlotante("Selecciona un usuario y una cantidad válida.", 'bg-red-600');
+            return;
+        }
+
+        user.monedasRuleta = (user.monedasRuleta ?? 0) + cantidad;
+        guardarDatos();
+        mostrarMensajeFlotante(`${cantidad} monedas de ruleta agregadas a ${user.nombre}`, 'bg-yellow-600');
+        document.getElementById("cantidadMonedasRuleta").value = "";
+    });
+
+    document.getElementById("addProductForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const nombre = document.getElementById("nuevoNombre").value.trim();
+        const descripcion = document.getElementById("nuevaDescripcion").value.trim(); // <-- Agregado
+        const precio = parseInt(document.getElementById("nuevoPrecio").value);
+        const imagenFile = document.getElementById("nuevaImagenFile").files[0];
+        const categoria = document.getElementById("nuevaCategoria").value;
+
+        if (!nombre || !descripcion || isNaN(precio) || precio <= 0 || !imagenFile || !categoria) { // <-- Valida descripción
+            mostrarMensajeFlotante("Completa todos los campos.", 'bg-red-600');
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const newId = `item${Date.now()}`;
+            const prod = { id: newId, nombre, descripcion, precio, imagen: e.target.result, categoria }; // <-- Incluye descripción
+            productos.push(prod);
+            guardarDatos();
+            renderProductosAdmin();
+            mostrarMensajeFlotante("Producto agregado con éxito.", 'bg-green-600');
+
+            // Limpiar campos
+            document.getElementById("nuevoNombre").value = "";
+            document.getElementById("nuevaDescripcion").value = ""; // <-- Limpia descripción
+            document.getElementById("nuevoPrecio").value = "";
+            document.getElementById("nuevaImagenFile").value = "";
+            document.getElementById("nuevaCategoria").value = "";
+            document.getElementById("previewContainer").classList.add('hidden');
+        };
+        reader.readAsDataURL(imagenFile);
+    });
+    
+    // Vista previa de la imagen al seleccionar un archivo
+    document.getElementById("nuevaImagenFile").addEventListener("change", function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById("previewImg").src = e.target.result;
+                document.getElementById("previewContainer").classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        } else {
+            document.getElementById("previewContainer").classList.add('hidden');
+        }
+    });
+    
+    function eliminarProducto(productId) {
+        const productIndex = productos.findIndex(p => p.id === productId);
+        if (productIndex !== -1) {
+            const removedProduct = productos.splice(productIndex, 1)[0];
+            guardarDatos();
+            renderProductosAdmin();
+            renderTienda(); // Actualizar la vista de la tienda para los jugadores
+            mostrarMensajeFlotante(`Producto "${removedProduct.nombre}" eliminado.`, 'bg-red-600');
+        }
+    }
+
+    function renderProductosAdmin() {
+        const cont = document.getElementById("listaProductosAdmin");
+        cont.innerHTML = "";
+        productos.forEach(p => {
+            const div = document.createElement("div");
+            div.className = "bg-white/60 p-4 rounded-xl shadow-lg border-2 border-white flex flex-col items-center text-center transform transition-transform duration-300 hover:scale-105";
+            div.innerHTML = `
+                <div class="w-full h-48 bg-white/70 rounded-xl mb-4 overflow-hidden border-2 border-white">
+                    <img src="${p.imagen}" alt="${p.nombre}" class="w-full h-full object-cover">
+                </div>
+                <h3 class="text-lg font-bold text-orange-600">${p.nombre}</h3>
+                <p class="text-sm text-gray-600 mb-2">Costo: ${p.precio}</p>
+                <p class="text-sm font-semibold text-gray-800 mb-2">Categoría: ${p.categoria}</p>
+                <div class="flex gap-2 w-full">
+                    <button onclick="abrirModalEditarProducto('${p.id}')" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-xl hover:bg-blue-600 transition-colors shadow-md border-2 border-blue-700">
+                        <i class="fas fa-edit mr-1"></i> Editar
+                    </button>
+                    <button onclick="eliminarProducto('${p.id}')" class="flex-1 bg-red-500 text-white font-bold py-2 rounded-xl hover:bg-red-600 transition-colors shadow-md border-2 border-red-700">
+                        <i class="fas fa-trash-alt mr-1"></i> Eliminar
+                    </button>
+                </div>
+            `;
+            cont.appendChild(div);
+        });
+    }
+
+    // 3. Lógica para abrir el modal y cargar los datos del producto
+    let productoEditandoId = null;
+    function abrirModalEditarProducto(productId) {
+        const producto = productos.find(p => p.id === productId);
+        if (!producto) return;
+        productoEditandoId = productId;
+        document.getElementById("editarNombre").value = producto.nombre;
+        document.getElementById("editarDescripcion").value = producto.descripcion || "";
+        document.getElementById("editarPrecio").value = producto.precio;
+        document.getElementById("editarCategoria").value = producto.categoria;
+        document.getElementById("editarImagenFile").value = "";
+        document.getElementById("editarPreviewContainer").classList.add('hidden');
+        document.getElementById("modalEditarProducto").classList.add('active');
+        setTimeout(() => {
+            document.getElementById("modalEditarProductoContent").classList.remove('scale-95', 'opacity-0');
+            document.getElementById("modalEditarProductoContent").classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    // 4. Vista previa de la imagen al editar
+    document.getElementById("editarImagenFile").addEventListener("change", function() {
+        const file = this.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById("editarPreviewImg").src = e.target.result;
+                document.getElementById("editarPreviewContainer").classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        } else {
+            document.getElementById("editarPreviewContainer").classList.add('hidden');
+        }
+    });
+
+    // 5. Guardar cambios al editar producto
+    document.getElementById("formEditarProducto").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const nombre = document.getElementById("editarNombre").value.trim();
+        const descripcion = document.getElementById("editarDescripcion").value.trim();
+        const precio = parseInt(document.getElementById("editarPrecio").value);
+        const categoria = document.getElementById("editarCategoria").value.trim();
+        const imagenFile = document.getElementById("editarImagenFile").files[0];
+
+        if (!nombre || !descripcion || isNaN(precio) || precio <= 0 || !categoria) {
+            mostrarMensajeFlotante("Completa todos los campos obligatorios.", 'bg-red-600');
+            return;
+        }
+
+        const producto = productos.find(p => p.id === productoEditandoId);
+        if (!producto) return;
+
+        producto.nombre = nombre;
+        producto.descripcion = descripcion;
+        producto.precio = precio;
+        producto.categoria = categoria;
+
+        if (imagenFile) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                producto.imagen = e.target.result;
+                guardarDatos();
+                renderProductosAdmin();
+                renderTienda();
+                mostrarMensajeFlotante("Producto editado con éxito.", 'bg-green-600');
+                cerrarModal('modalEditarProducto');
+            };
+            reader.readAsDataURL(imagenFile);
+        } else {
+            guardarDatos();
+            renderProductosAdmin();
+            renderTienda();
+            mostrarMensajeFlotante("Producto editado con éxito.", 'bg-green-600');
+            cerrarModal('modalEditarProducto');
+        }
+    });
+
+    // === LÓGICA DE LA RULETA ===
+
+// Premios de la ruleta: por defecto todos los productos
+let premiosRuleta = JSON.parse(localStorage.getItem("premiosRuleta")) || productos.map(p => p.id);
+
+function mostrarRuleta() {
+    const modal = document.getElementById('modalRuleta');
+    const modalContent = document.getElementById('modalRuletaContent');
+    modal.classList.add('active');
+    setTimeout(() => {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+    }, 10);
+    dibujarRuleta();
+    document.getElementById('premioRuleta').innerText = "";
 }
+
+let ruletaGirando = false;
+let ruletaAngulo = 0;
+let ruletaPremioIndex = 0;
+
+function dibujarRuleta(angulo = 0, highlightIndex = null) {
+    const canvas = document.getElementById('canvasRuleta');
+    const ctx = canvas.getContext('2d');
+    const premios = premiosRuleta.map(id => productos.find(p => p.id === id)).filter(Boolean);
+    const num = premios.length;
+    const colors = ["#FF6384","#36A2EB","#FFCE56","#4BC0C0","#9966FF","#FF9F40","#F44336","#8BC34A","#00BCD4","#FFC107"];
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for(let i=0; i<num; i++) {
+        ctx.save();
+        ctx.translate(200,200);
+        ctx.rotate(angulo + (i*2*Math.PI/num));
+        ctx.beginPath();
+        ctx.moveTo(0,0);
+        ctx.arc(0,0,180, 0, 2*Math.PI/num);
+        ctx.fillStyle = (highlightIndex === i) ? "#fff176" : colors[i % colors.length];
+        ctx.shadowColor = (highlightIndex === i) ? "#fbc02d" : "transparent";
+        ctx.shadowBlur = (highlightIndex === i) ? 30 : 0;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.rotate(Math.PI/num);
+        ctx.textAlign = "right";
+        ctx.fillStyle = "#222";
+        ctx.font = "bold 18px Roboto";
+        ctx.fillText(premios[i].nombre, 170, 10);
+        ctx.restore();
+    }
+    // Dibuja el indicador
+    ctx.save();
+    ctx.translate(200, 20);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-20, -30);
+    ctx.lineTo(20, -30);
+    ctx.closePath();
+    ctx.fillStyle = "#f44336";
+    ctx.shadowColor = "#fff";
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.restore();
+}
+
+document.getElementById('girarRuletaBtn').onclick = function() {
+    if (ruletaGirando) return;
+    // NUEVO: Verifica si el usuario tiene monedas de ruleta
+    if ((usuarioActivo.monedasRuleta ?? 0) <= 0) {
+        mostrarMensajeFlotante("No tienes monedas de ruleta.", 'bg-yellow-600');
+        return;
+    }
+    const premios = premiosRuleta.map(id => productos.find(p => p.id === id)).filter(Boolean);
+    if (premios.length === 0) {
+        document.getElementById('premioRuleta').innerText = "No hay premios configurados.";
+        return;
+    }
+    ruletaGirando = true;
+    document.getElementById('premioRuleta').innerText = "";
+    // NUEVO: Resta una moneda de ruleta y actualiza la vista
+    usuarioActivo.monedasRuleta--;
+    document.getElementById("monedasRuleta").innerText = usuarioActivo.monedasRuleta;
+    const btnMonedas = document.getElementById("btnMonedasRuleta");
+    if(btnMonedas) btnMonedas.innerText = usuarioActivo.monedasRuleta ?? 0;
+    guardarDatos();
+    // Calcular ángulo final (el indicador está arriba)
+    const vueltas = 5 + Math.random() * 2;
+    const anguloPorPremio = 2 * Math.PI / premios.length;
+    const anguloFinal = (2 * Math.PI * vueltas) - (ruletaPremioIndex * anguloPorPremio) - anguloPorPremio/2;
+    let start = null;
+    let duracion = 3500; // ms
+    function animarRuleta(timestamp) {
+        if (!start) start = timestamp;
+        let progreso = (timestamp - start) / duracion;
+        if (progreso > 1) progreso = 1;
+        // Ease out cubic
+        let ease = 1 - Math.pow(1 - progreso, 3);
+        ruletaAngulo = ease * anguloFinal;
+        dibujarRuleta(ruletaAngulo);
+        if (progreso < 1) {
+            requestAnimationFrame(animarRuleta);
+        } else {
+            // Resalta el premio ganador
+            dibujarRuleta(ruletaAngulo, ruletaPremioIndex);
+            setTimeout(() => {
+                const ganador = premios[ruletaPremioIndex];
+                document.getElementById('premioRuleta').innerText = `¡Ganaste: ${ganador.nombre}!`;
+                usuarioActivo.inventario.push(ganador);
+                usuarioActivo.historialCompras.push({ item: ganador.nombre + " (Ruleta)", fecha: new Date().toLocaleString() });
+                guardarDatos();
+                mostrarMensajeFlotante(`¡Ganaste ${ganador.nombre} en la ruleta!`, 'bg-purple-600');
+                // --- Animación de imagen del premio ---
+                const animDiv = document.getElementById('ruleta-premio-anim');
+                document.getElementById('ruleta-premio-img').src = ganador.imagen;
+                document.getElementById('ruleta-premio-nombre').innerText = ganador.nombre;
+                animDiv.style.display = 'flex';
+                setTimeout(() => {
+                    animDiv.style.display = 'none';
+                    ruletaGirando = false;
+                }, 2200); // Visible por 2.2 segundos
+            }, 800);
+        }
+    }
+    requestAnimationFrame(animarRuleta);
+};
+
+function mostrarPanelRuletaAdmin() {
+    renderAdminRuletaPanel();
+    const modal = document.getElementById('modalAdminRuleta');
+    const modalContent = document.getElementById('modalAdminRuletaContent');
+    modal.classList.add('active');
+    setTimeout(() => {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+    }, 10);
+}
+
+function renderAdminRuletaPanel() {
+    const cont = document.getElementById("adminRuletaPremiosPanel");
+    cont.innerHTML = `
+        <div class="mb-4">
+            <select id="selectAgregarPremio" class="bg-white/70 text-gray-900 p-2 rounded-xl border-2 border-orange-200">
+                <option value="">-- Agregar producto de la tienda --</option>
+                ${productos.filter(p=>!premiosRuleta.includes(p.id)).map(p=>`<option value="${p.id}">${p.nombre}</option>`).join("")}
+            </select>
+            <button onclick="agregarPremioRuleta()" class="ml-2 bg-green-500 text-white px-3 py-1 rounded-xl hover:bg-green-600">Agregar</button>
+        </div>
+        <ul>
+            ${premiosRuleta.map(id=>{
+                const prod = productos.find(p=>p.id===id);
+                if(!prod) return '';
+                return `<li class="flex items-center mb-2">
+                    <span class="flex-1">${prod.nombre}</span>
+                    <button onclick="eliminarPremioRuleta('${id}')" class="bg-red-500 text-white px-2 py-1 rounded-xl hover:bg-red-600 ml-2">Eliminar</button>
+                </li>`;
+            }).join("")}
+        </ul>
+    `;
+}
+
+function agregarPremioRuleta() {
+    const id = document.getElementById("selectAgregarPremio").value;
+    if(id && !premiosRuleta.includes(id)) {
+        premiosRuleta.push(id);
+        localStorage.setItem("premiosRuleta", JSON.stringify(premiosRuleta));
+        renderAdminRuletaPanel();
+        dibujarRuleta();
+    }
+}
+function eliminarPremioRuleta(id) {
+    premiosRuleta = premiosRuleta.filter(pid=>pid!==id);
+    localStorage.setItem("premiosRuleta", JSON.stringify(premiosRuleta));
+    renderAdminRuletaPanel();
+    dibujarRuleta();
+}
+
+// ==================== NUEVAS FUNCIONES PARA CARGAR PARTIDA ====================
+function leerMainFile() {
+    const input = document.getElementById('inputMainFile');
+    if (!input.files.length) {
+        mostrarMensajeFlotante("Selecciona un archivo de partida .main", 'bg-yellow-600');
+        return;
+    }
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        let data;
+        try {
+            // Intenta parsear como JSON
+            data = JSON.parse(e.target.result);
+        } catch {
+            // Si es .txt, intenta buscar líneas tipo: Pikachu, nivel 50, etc.
+            const lines = e.target.result.split('\n').map(l=>l.trim()).filter(Boolean);
+            data = { equipo: lines.map(nombre => ({ nombre })) };
+        }
+        mostrarEquipoPokemon(data.equipo || []);
+    };
+    reader.readAsText(file);
+}
+
+function mostrarEquipoPokemon(equipo) {
+    const cuadro = document.getElementById('cuadroEquipo');
+    const cont = document.getElementById('equipoPokemon');
+    if (!equipo || !equipo.length) {
+        cuadro.classList.add('hidden');
+        mostrarMensajeFlotante("No se encontró equipo en la partida.", 'bg-red-600');
+        return;
+    }
+    // Solo muestra los primeros 6 Pokémon
+    const equipo6 = equipo.slice(0, 6);
+    cont.innerHTML = `
+        <div class="flex flex-wrap justify-center gap-4">
+            ${equipo6.map(poke => `
+                <div class="flex flex-col items-center bg-indigo-50 rounded-2xl p-4 shadow-lg border-2 border-indigo-200 w-36">
+                    <img src="https://img.pokemondb.net/artwork/${(poke.nombre || 'missingno').toLowerCase().replace(/[^a-z0-9]/g,'-')}.jpg"
+                        alt="${poke.nombre}" class="w-24 h-24 object-contain mb-2 rounded-lg border-2 border-indigo-200"
+                        onerror="this.src='https://placehold.co/96x96/eee/aaa?text=?'">
+                    <div class="font-bold text-base text-indigo-700 text-center">${poke.nombre || 'Pokémon'}</div>
+                    ${poke.nivel ? `<div class="text-sm text-indigo-500">Nivel: ${poke.nivel}</div>` : ''}
+                </div>
+            `).join('')}
+        </div>
+    `;
+    cuadro.classList.remove('hidden');
+}
+
+function mostrarCargarEquipo() {
+    const modal = document.getElementById('modalCargarEquipo');
+    const modalContent = document.getElementById('modalCargarEquipoContent');
+    modal.classList.add('active');
+    setTimeout(() => {
+        modalContent.classList.remove('scale-95', 'opacity-0');
+        modalContent.classList.add('scale-100', 'opacity-100');
+    }, 10);
+    // Limpia el cuadro de equipo al abrir
+    document.getElementById('cuadroEquipo').classList.add('hidden');
+    document.getElementById('equipoPokemon').innerHTML = '';
+    document.getElementById('inputMainFile').value = '';
+}
+</script>
+</body>
+</html>
