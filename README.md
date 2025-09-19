@@ -1,2 +1,0 @@
-# RULETATellez
-ruleta de hermanos
